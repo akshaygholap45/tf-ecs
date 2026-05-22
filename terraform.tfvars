@@ -2,7 +2,7 @@
 # terraform.tfvars
 ###############################################################################
 
-project_name = "myapp"
+project_name = "tracklet"
 aws_region   = "us-east-1"
 
 # Networking

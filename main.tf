@@ -13,10 +13,10 @@ terraform {
   }
 
   backend "s3" {
-    bucket         = "myapp-tf-state"        # set via -backend-config in workflow
+    bucket         = "tracklet-tf-state"        # set via -backend-config in workflow
     key            = "ecs-infra/terraform.tfstate"
     region         = "us-east-1"
-    dynamodb_table = "myapp-tf-state-lock"   # set via -backend-config in workflow
+    dynamodb_table = "tracklet-tf-state-table"   # set via -backend-config in workflow
     encrypt        = true
   }
 }
