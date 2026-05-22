@@ -69,6 +69,10 @@ variable "log_retention_days" {
 }
 
 variable "environment_variables" {
-  type    = list(object({ name = string; value = string }))
+  type = list(object({
+    name  = string
+    value = string
+  }))
+
   default = []
 }
