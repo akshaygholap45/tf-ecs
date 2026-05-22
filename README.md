@@ -1,128 +1,129 @@
-# AWS ECS Fargate — Terraform Modular Infrastructure
+# AWS ECS Fargate — Terraform (Study Project)
 
-A production-ready, modular Terraform setup for running containerised applications on **AWS ECS Fargate** behind an **Application Load Balancer**, with auto-scaling, ECR, VPC flow logs, and CloudWatch observability.
+Modular Terraform setup for AWS ECS Fargate with ALB, ECR, VPC, IAM, and auto-scaling.
+Triggered entirely via **GitHub Actions workflow_dispatch** — no CI/CD on push or PRs.
 
 ---
 
-## Architecture
+## Project Structure
 
 ```
-Internet
-    │
-    ▼
-┌─────────────────────────────────────────────┐
-│          Application Load Balancer           │  ← Public subnets
-│     HTTP (80) → redirect → HTTPS (443)      │
-└───────────────────┬─────────────────────────┘
-                    │ Target Group (IP mode)
-    ┌───────────────▼─────────────────┐
-    │       ECS Fargate Service        │  ← Private subnets
-    │   ┌──────┐ ┌──────┐ ┌──────┐   │
-    │   │ Task │ │ Task │ │ Task │   │
-    │   └──────┘ └──────┘ └──────┘   │
-    └──────────────┬──────────────────┘
-                   │
-    ┌──────────────▼──────────────────┐
-    │      Supporting Services         │
-    │  ECR  │  CloudWatch  │  SSM     │
-    └─────────────────────────────────┘
+.
+├── main.tf                    # Root — wires all modules together
+├── variables.tf               # All input variables
+├── outputs.tf                 # Key outputs (ALB DNS, ECR URL, etc.)
+├── terraform.tfvars           # Your config values — edit this
+├── .gitignore
+├── .github/
+│   └── workflows/
+│       └── terraform.yml      # workflow_dispatch: plan | apply | destroy
+└── modules/
+    ├── vpc/                   # VPC, subnets, IGW, NAT, flow logs
+    ├── security-groups/       # ALB and ECS security groups
+    ├── ecr/                   # ECR repo + lifecycle policy
+    ├── iam/                   # Execution role + task role
+    ├── alb/                   # ALB, target group, listeners
+    └── ecs/                   # Cluster, task def, service, auto-scaling
 ```
 
-## Module Structure
+---
 
-```
-terraform-ecs/
-├── main.tf                    # Root orchestrator
-├── variables.tf               # Root input variables
-├── outputs.tf                 # Root outputs
-├── Makefile                   # Convenience commands
-├── modules/
-│   ├── vpc/                   # VPC, subnets, IGW, NAT, flow logs
-│   ├── security-groups/       # ALB and ECS security groups
-│   ├── ecr/                   # ECR repository + lifecycle policy
-│   ├── iam/                   # Execution role, task role, autoscaling role
-│   ├── alb/                   # ALB, target group, HTTP/HTTPS listeners
-│   └── ecs/                   # Cluster, task definition, service, auto-scaling
-└── environments/
-    ├── dev/terraform.tfvars
-    └── prod/terraform.tfvars
-```
+## One-time AWS Setup
 
-## Quick Start
-
-### 1. Prerequisites
-- Terraform ≥ 1.5
-- AWS CLI configured (`aws configure`)
-- An ECR image pushed (or use a public image for testing)
-
-### 2. Initialise
+### 1. Create IAM user for GitHub Actions
 
 ```bash
-make init
+aws iam create-user --user-name terraform-github
+aws iam attach-user-policy \
+  --user-name terraform-github \
+  --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
+aws iam create-access-key --user-name terraform-github
+# Copy the AccessKeyId and SecretAccessKey
 ```
 
-### 3. Plan & Apply (dev)
+### 2. Create S3 bucket for Terraform state
 
 ```bash
-make plan ENV=dev
-make apply ENV=dev
+aws s3api create-bucket \
+  --bucket myapp-tf-state \
+  --region us-east-1
+
+aws s3api put-bucket-versioning \
+  --bucket myapp-tf-state \
+  --versioning-configuration Status=Enabled
+
+aws s3api put-bucket-encryption \
+  --bucket myapp-tf-state \
+  --server-side-encryption-configuration \
+  '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]}'
 ```
 
-### 4. Deploy to prod
+### 3. Create DynamoDB table for state locking
 
 ```bash
-make plan ENV=prod
-make apply ENV=prod
+aws dynamodb create-table \
+  --table-name myapp-tf-state-lock \
+  --attribute-definitions AttributeName=LockID,AttributeType=S \
+  --key-schema AttributeName=LockID,KeyType=HASH \
+  --billing-mode PAY_PER_REQUEST \
+  --region us-east-1
 ```
 
-## Push an Image to ECR
+---
+
+## GitHub Secrets Setup
+
+Go to your repo → **Settings → Secrets and variables → Actions** and add:
+
+| Secret | Value |
+|---|---|
+| `AWS_ACCESS_KEY_ID` | From IAM user creation |
+| `AWS_SECRET_ACCESS_KEY` | From IAM user creation |
+| `TF_STATE_BUCKET` | `myapp-tf-state` |
+| `TF_STATE_LOCK_TABLE` | `myapp-tf-state-lock` |
+
+---
+
+## Running the Workflow
+
+Go to **Actions → Terraform → Run workflow** and pick an action:
+
+| Action | What it does |
+|---|---|
+| `plan` | Shows what Terraform will create/change/destroy |
+| `apply` | Provisions the infrastructure |
+| `destroy` | Tears everything down |
+
+Always run **plan** first to review, then **apply**.
+
+---
+
+## After Apply — Push an Image
 
 ```bash
-# Get ECR URL from Terraform output
-ECR_URL=$(terraform output -raw ecr_repository_url)
+# Get ECR URL from workflow output
+ECR_URL=<your-ecr-url-from-outputs>
 AWS_REGION=us-east-1
 
-# Authenticate
+# Login to ECR
 aws ecr get-login-password --region $AWS_REGION \
   | docker login --username AWS --password-stdin $ECR_URL
 
-# Build, tag and push
+# Build and push
 docker build -t myapp .
 docker tag myapp:latest $ECR_URL:latest
 docker push $ECR_URL:latest
 ```
 
-## Auto-scaling
+---
 
-Tasks scale automatically based on:
+## Estimated Cost (us-east-1)
 
-| Metric | Scale-out threshold | Scale-in cooldown |
-|--------|--------------------|--------------------|
-| CPU    | 70 %               | 300 s              |
-| Memory | 80 %               | 300 s              |
+| Resource | ~Monthly cost |
+|---|---|
+| NAT Gateway (2) | ~$70 |
+| ALB | ~$18 |
+| ECS Fargate (1 task, 256CPU/512MB) | ~$10 |
+| ECR, CloudWatch, S3, DynamoDB | ~$2 |
 
-## Security Highlights
-
-- ECS tasks run in **private subnets** (no public IPs)
-- ALB → ECS traffic only allowed on the configured `container_port`
-- Task execution role scoped to ECR + Secrets Manager
-- ECR images scanned on push
-- VPC flow logs enabled to CloudWatch
-- ALB access logs stored in S3 (90-day retention)
-- **ECS Exec** enabled for live container debugging
-
-## Remote State (recommended for teams)
-
-Uncomment and configure the `backend "s3"` block in `main.tf`:
-
-```hcl
-backend "s3" {
-  bucket         = "my-tf-state"
-  key            = "ecs-infra/terraform.tfstate"
-  region         = "us-east-1"
-  dynamodb_table = "terraform-state-lock"
-  encrypt        = true
-}
-```
-
-Create the bucket and DynamoDB table once manually or via a bootstrap script.
+> Tip: Run **destroy** when not studying to avoid NAT Gateway charges.

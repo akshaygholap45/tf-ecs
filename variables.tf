@@ -1,29 +1,20 @@
 ###############################################################################
-# Root variables.tf
+# variables.tf
 ###############################################################################
 
-# ── General ──────────────────────────────────────────────────────────────────
 variable "aws_region" {
-  description = "AWS region to deploy resources"
+  description = "AWS region"
   type        = string
   default     = "us-east-1"
 }
 
 variable "project_name" {
-  description = "Name of the project (used as prefix for all resources)"
+  description = "Project name — used as prefix for all resources"
   type        = string
-}
-
-variable "environment" {
-  description = "Deployment environment (dev | staging | prod)"
-  type        = string
-  validation {
-    condition     = contains(["dev", "staging", "prod"], var.environment)
-    error_message = "environment must be one of: dev, staging, prod."
-  }
 }
 
 # ── Networking ────────────────────────────────────────────────────────────────
+
 variable "vpc_cidr" {
   description = "CIDR block for the VPC"
   type        = string
@@ -31,50 +22,47 @@ variable "vpc_cidr" {
 }
 
 variable "availability_zones" {
-  description = "List of availability zones to use"
+  description = "List of availability zones"
   type        = list(string)
-  default     = ["us-east-1a", "us-east-1b", "us-east-1c"]
+  default     = ["us-east-1a", "us-east-1b"]
 }
 
 variable "public_subnets" {
-  description = "CIDR blocks for public subnets"
+  description = "CIDR blocks for public subnets (one per AZ)"
   type        = list(string)
-  default     = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
+  default     = ["10.0.1.0/24", "10.0.2.0/24"]
 }
 
 variable "private_subnets" {
-  description = "CIDR blocks for private subnets"
+  description = "CIDR blocks for private subnets (one per AZ)"
   type        = list(string)
-  default     = ["10.0.11.0/24", "10.0.12.0/24", "10.0.13.0/24"]
+  default     = ["10.0.11.0/24", "10.0.12.0/24"]
 }
 
-variable "enable_nat_gateway" {
-  description = "Enable NAT Gateway for private subnets"
-  type        = bool
-  default     = true
-}
-
-# ── ALB / TLS ─────────────────────────────────────────────────────────────────
-variable "certificate_arn" {
-  description = "ACM certificate ARN for HTTPS listener (leave empty to skip HTTPS)"
-  type        = string
-  default     = ""
-}
+# ── ALB ───────────────────────────────────────────────────────────────────────
 
 variable "health_check_path" {
-  description = "HTTP path the ALB uses for health checks"
+  description = "ALB health check path"
   type        = string
   default     = "/health"
 }
 
+variable "certificate_arn" {
+  description = "ACM certificate ARN for HTTPS — leave empty for HTTP only"
+  type        = string
+  default     = ""
+}
+
 # ── ECR ───────────────────────────────────────────────────────────────────────
+
 variable "ecr_image_retention_count" {
-  description = "Number of images to retain in ECR"
+  description = "Number of images to keep in ECR"
   type        = number
   default     = 10
 }
 
-# ── ECS / Container ───────────────────────────────────────────────────────────
+# ── ECS ───────────────────────────────────────────────────────────────────────
+
 variable "image_tag" {
   description = "Docker image tag to deploy"
   type        = string
@@ -88,7 +76,7 @@ variable "container_port" {
 }
 
 variable "task_cpu" {
-  description = "Fargate task CPU units (256 | 512 | 1024 | 2048 | 4096)"
+  description = "Fargate task CPU units"
   type        = number
   default     = 256
 }
@@ -100,25 +88,25 @@ variable "task_memory" {
 }
 
 variable "desired_count" {
-  description = "Desired number of ECS tasks"
+  description = "Desired number of running tasks"
   type        = number
-  default     = 2
+  default     = 1
 }
 
 variable "min_capacity" {
-  description = "Minimum number of tasks for auto-scaling"
+  description = "Minimum tasks for auto-scaling"
   type        = number
   default     = 1
 }
 
 variable "max_capacity" {
-  description = "Maximum number of tasks for auto-scaling"
+  description = "Maximum tasks for auto-scaling"
   type        = number
-  default     = 10
+  default     = 4
 }
 
 variable "environment_variables" {
-  description = "Environment variables to inject into containers"
+  description = "Environment variables injected into the container"
   type = list(object({
     name  = string
     value = string

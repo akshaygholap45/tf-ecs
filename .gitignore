@@ -1,110 +1,30 @@
-# =============================================================================
 # Terraform
-# =============================================================================
-
-# Local .terraform directory (downloaded providers & modules)
 **/.terraform/
-**/.terraform.lock.hcl
-
-# Terraform plan files (may contain secrets)
-*.tfplan
-tfplan
-*.tfplan.json
-
-# State files — never commit these
+.terraform.lock.hcl
 *.tfstate
 *.tfstate.*
 *.tfstate.backup
-
-# Crash log
+*.tfplan
+tfplan
 crash.log
 crash.*.log
-
-# Terraform variable files that may contain secrets
-# Keep *.tfvars in version control ONLY if they contain no secrets.
-# Uncomment the lines below if your tfvars hold credentials or tokens.
-# *.tfvars
-# *.tfvars.json
-
-# Override files (local developer overrides)
+secrets.tfvars
+secrets.auto.tfvars
 override.tf
 override.tf.json
 *_override.tf
-*_override.tf.json
 
-# =============================================================================
-# Secrets & credentials — never commit these
-# =============================================================================
-*.pem
-*.key
-*.p12
-*.pfx
-*.crt
-*.cer
-secrets.auto.tfvars
-secrets.tfvars
+# Secrets
 .env
 .env.*
-credentials
+*.pem
+*.key
 
-# =============================================================================
-# AWS
-# =============================================================================
-.aws/
-aws-exports.js
-
-# =============================================================================
-# macOS
-# =============================================================================
+# OS
 .DS_Store
-.AppleDouble
-.LSOverride
-._*
-.Spotlight-V100
-.Trashes
-
-# =============================================================================
-# Linux
-# =============================================================================
-*~
-.fuse_hidden*
-.nfs*
-
-# =============================================================================
-# Windows
-# =============================================================================
 Thumbs.db
-ehthumbs.db
-Desktop.ini
-$RECYCLE.BIN/
 
-# =============================================================================
-# Editors & IDEs
-# =============================================================================
-
-# VS Code
+# Editors
 .vscode/
-!.vscode/extensions.json   # safe to share recommended extensions
-
-# JetBrains (IntelliJ, GoLand, etc.)
 .idea/
-*.iml
-
-# Vim / Neovim
 *.swp
-*.swo
-*~
-[._]*.s[a-v][a-z]
-[._]*.sw[a-p]
-
-# Emacs
-\#*\#
-.\#*
-
-# =============================================================================
-# Build artefacts
-# =============================================================================
-dist/
-build/
-*.zip
-*.tar.gz
